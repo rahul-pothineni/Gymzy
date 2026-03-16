@@ -1,6 +1,7 @@
 @import "tailwindcss";
+@import '@neondatabase/neon-js/ui/tailwind';
 
-@theme {
+@theme{
   --font-sans: "Geist", system-ui, sans-serif;
   --color-background: #0a0a0a;
   --color-foreground: #fafafa;
