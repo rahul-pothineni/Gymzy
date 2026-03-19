@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "model_training_plans" ADD COLUMN     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP;

@@ -5,6 +5,8 @@ import { Select } from "../components/ui/Select";
 import { useState } from "react";
 import { Button } from "../components/ui/Button";
 import type { UserProfile } from "../types";
+import { Loader2 } from "lucide-react";
+
 const goalOptions = [
     {value: "bulk", label: "Build Muscle"},
     {value: "cut", label: "Lose Fat"},
@@ -52,6 +54,10 @@ export default function Onboarding(){
         split: splitOptions[0].value,
     });
 
+
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState("");
+
     async function submitForm(e: React.SubmitEvent){
         e.preventDefault();
 
@@ -62,9 +68,18 @@ export default function Onboarding(){
             minutesPerDay: parseInt(formData.minutesPerDay) as UserProfile["minutesPerDay"],
             split: formData.split as UserProfile["split"],
         };
-        saveProfile(profile)
 
+        try {
+            await saveProfile(profile);
+            setIsGenerating(true); //after user finishes onboarding, they are now generating a plan
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "An unknown error occurred");
+        } finally {
+            setIsGenerating(false); //set generating to false after the plan is generated
+        }
     }
+
+    
     function updateFormData(field: string, value: string){ //function takes in field and updates to value, which updates formData state
         setFormData(prev => ({...prev, [field]: value}));
     }
@@ -81,7 +96,7 @@ export default function Onboarding(){
                     {/* Progress Bar for onboarding */}
 
                     {/* Questionnaire */}
-                    <Card variant = "bordered">
+                    {!isGenerating ? <Card variant = "bordered">
                         <h1 className = "text-2xl font-bold" mb-2>Tell Us About Your Goals</h1>
                         <p className = "text-[var(--color-muted)] mb-6">
                             Help us create a personalized workout plan for you.
@@ -128,9 +143,17 @@ export default function Onboarding(){
                                 </Button>
                             </div>
                         </form>
-                    </Card>
+                        {/* AI Generation vvv*/} 
+                    </Card>: (
+                        
+                        <Card variant = "bordered" className = "text-center py-16">
+                            <Loader2 className = "w-10 h-10 mx-auto animate-spin mb-6 text-[var(--color-accent)]"/>
+                            <h1 className = "text-2xl font-bold mb-2">Generating your plan</h1>
+                            <p className = "text-[var(--color-muted)] mb-6">Our AI is working on creating a personalized workout plan for you.</p>
+                        </Card>
+                    )}
 
-                    {/* AI Generation */}
+                    
                 </div>
             </div>
         </SignedIn>);

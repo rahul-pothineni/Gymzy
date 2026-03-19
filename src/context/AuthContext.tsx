@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, type ReactNode, useContext } from "react";
 import type { User, UserProfile } from "../types";
-import { authClient } from "../lib/Auth";
+import { authClient } from "../lib/auth";
 import { api } from "../lib/api";
 
 interface AuthContextType{ //gets user data if exists 
@@ -13,8 +13,7 @@ const AuthContext = createContext<AuthContextType | null> (null);
 
 export default function AuthProvider({ children }: { children: ReactNode }){
     const [neonUser, setNeonUser] = useState<any>(null); // data for the user we get back from neon, as a user type called neonUser
-    const [isloading, setIsLoading] = useState(true); //boolean to check if the user is in a loading state
-
+    const [isloading, setIsLoading] = useState(true); //boolean to check if the user is in a loading state 
     console.log(neonUser);
     useEffect(() => {
         async function loadUser(){ // loads user info using our authClient
