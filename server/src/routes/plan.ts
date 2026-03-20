@@ -27,6 +27,7 @@ planRouter.post("/generate", async (req: Request, res: Response) => {
         const nextVersion = latestPlan ? latestPlan.version + 1 : 1;
 
         let planJson; //AI generated plan in JSON format
+
         try{
             planJson = await generateTrainingPlan(profile);
 

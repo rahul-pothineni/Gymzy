@@ -15,13 +15,14 @@ async function post(path: string, body: object){
 return res.json();    
 }
 
-async function get(){
-
-}
 
 export const api = {
     saveProfile: (
         userId: string,
         profile: Omit<UserProfile, "userId" | "updatedAt">
-    ) => post("/profile", { userId, ...profile }),
+    ) => {return post("/profile", { userId, ...profile })},
+    
+    generatePlan: (
+        userId: string
+    ) => {return post("/plan/generate", { userId })},
 };
