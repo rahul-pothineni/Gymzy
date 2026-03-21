@@ -4,6 +4,7 @@ An application that helps improve your weight-lifiting sessions by having an eas
 
 ## 📦 Technologies 
 
+- `PostgreSQL`
 - `NodeJS`
 - `ExpressJS`
 - `React (Vite)`
@@ -17,5 +18,8 @@ An application that helps improve your weight-lifiting sessions by having an eas
 - Custom tracking spreadsheet to store and anylyze trends in sessions (Work-In-Progress.)
 
 ## 📍 The Process
+- coming soon -
 ## 🚦 Running the Project
+- coming soon -
 ## 🎞️ Preview
+- coming soon -
