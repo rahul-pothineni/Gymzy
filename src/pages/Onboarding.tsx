@@ -101,7 +101,7 @@ export default function Onboarding(){
 
                     {/* Questionnaire */}
                     {!isGenerating ? <Card variant = "bordered">
-                        <h1 className = "text-2xl font-bold" mb-2>Tell Us About Your Goals</h1>
+                        <h1 className="text-2xl font-bold mb-2">Tell Us About Your Goals</h1>
                         <p className = "text-[var(--color-muted)] mb-6">
                             Help us create a personalized workout plan for you.
                         </p>

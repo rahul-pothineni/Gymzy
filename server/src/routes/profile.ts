@@ -22,7 +22,7 @@ profileRouter.post("/", async (req: Request, res: Response) => {
         }
 
         await prisma.user_profiles.upsert({
-            where: { id: userId },
+            where: { user_id: userId },
             update: {
                 goal,
                 experience,
@@ -31,7 +31,7 @@ profileRouter.post("/", async (req: Request, res: Response) => {
                 split
             },
             create: {
-                id: userId,
+                user_id: userId,
                 goal,
                 experience,
                 daysPerWeek: parseInt(daysPerWeek),

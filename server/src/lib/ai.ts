@@ -7,8 +7,9 @@ dotenv.config();
 
 export async function generateTrainingPlan(profile: UserProfile | Record<string, any>): Promise<Omit<TrainingPlan, "id" | "userId" | "version" | "createdAt">>{
     //normalize profile data
+    const row = profile as UserProfile & { user_id?: string };
     const normalizedProfile: UserProfile = {
-        userId: profile.userId || "",
+        userId: row.user_id ?? row.userId ?? "",
         goal: profile.goal || "bulk",
         experience: profile.experience || "intermediate",
         daysPerWeek: profile.daysPerWeek || 4,
@@ -25,7 +26,7 @@ export async function generateTrainingPlan(profile: UserProfile | Record<string,
         apiKey,
         baseURL: "https://openrouter.ai/api/v1",
         defaultHeaders: {
-            "HTTP-Referer": process.env.BASE_URL || "http://localhost:5173",
+            "HTTP-Referer": process.env.BASE_URL || "http://localhost:3001",
             "X-Title": "Gymzy Workout Planner"
         }
     });

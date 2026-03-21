@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "db:migrate": "cd server && npm run db:migrate",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
