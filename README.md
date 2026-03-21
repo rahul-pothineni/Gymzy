@@ -4,7 +4,7 @@ An application that helps improve your weight-lifiting sessions by having an eas
 
 ## 📦 Technologies 
 
-- `PostgreSQL`
+- `PostgreSQL (Prisma)`
 - `NodeJS`
 - `ExpressJS`
 - `React (Vite)`
