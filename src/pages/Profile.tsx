@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
@@ -14,9 +15,27 @@ import { PlanDisplay } from "../components/plan/PlanDisplay";
 
 export default function Profile() {
   const { user, isLoading, plan, generatePlan } = useAuth();
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  async function handleRegenerate() {
+    setIsRegenerating(true);
+    try {
+      await generatePlan();
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
 
   if (!user && !isLoading) {
     return <Navigate to="/auth/sign-in" replace />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCcw className="w-6 h-6 animate-spin text-[var(--color-muted)]" />
+      </div>
+    );
   }
 
   if (!plan) {
@@ -47,10 +66,11 @@ export default function Profile() {
           <Button
             variant="secondary"
             className="gap-2"
-            onClick={async () => await generatePlan()}
+            disabled={isRegenerating}
+            onClick={handleRegenerate}
           >
-            <RefreshCcw className="w-4 h-4" />
-            Regenerate Plan
+            <RefreshCcw className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`} />
+            {isRegenerating ? "Regenerating..." : "Regenerate Plan"}
           </Button>
         </div>
 

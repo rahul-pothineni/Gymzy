@@ -5,9 +5,10 @@ import { api } from "../lib/api";
 import { useRef, useCallback } from "react";
 import type { TrainingPlan } from "../types";
 
-interface AuthContextType{ //gets user data if exists 
+interface AuthContextType{ //gets user data if exists
     user: User | null;
     isLoading: boolean;
+    profile: UserProfile | null;
     saveProfile: (profile: Omit<UserProfile, "userId" | "updatedAt">) => Promise<void>;
     generatePlan: () => Promise<void>;
     refreshData: () => Promise<void>;
@@ -19,6 +20,7 @@ export default function AuthProvider({ children }: { children: ReactNode }){
     const [neonUser, setNeonUser] = useState<any>(null); // data for the user we get back from neon, as a user type called neonUser
     const [isLoading, setIsLoading] = useState(true); //boolean to check if the user is in a loading state 
     const isRefreshingRef = useRef(false); //boolean to check if the data is being refreshed
+    const [profile, setProfile] = useState<UserProfile | null>(null); // data for the user's profile
     const [plan, setPlan] = useState<TrainingPlan | null>(null); // data for the plan we get back from the api
 
     useEffect(() => {
@@ -45,6 +47,7 @@ export default function AuthProvider({ children }: { children: ReactNode }){
           if (neonUser?.id) {
             refreshData();
           } else {
+            setProfile(null);
             setPlan(null);
           }
           setIsLoading(false);
@@ -56,12 +59,24 @@ export default function AuthProvider({ children }: { children: ReactNode }){
         if(!neonUser || isRefreshingRef.current) return;
         isRefreshingRef.current = true;
         try {
-            //fetch profile
-            //const profileData = 
+            //fetch profile and plan in parallel
+            const [profileData, planData] = await Promise.all([
+                api.getProfile(neonUser.id).catch(() => null),
+                api.getCurrentPlan(neonUser.id).catch(() => null),
+            ]);
 
-
-            //fetch plan
-            const planData = await api.getCurrentPlan(neonUser.id).catch(() => null); // get the current plan for the user
+            if (profileData) {
+                setProfile({
+                    userId: profileData.user_id,
+                    goal: profileData.goal,
+                    experience: profileData.experience,
+                    daysPerWeek: profileData.daysPerWeek,
+                    minutesPerDay: profileData.minutesPerDay,
+                    split: profileData.split,
+                });
+            } else {
+                setProfile(null);
+            }
             if (planData){
                 setPlan({
                     id: planData.id,
@@ -100,7 +115,7 @@ export default function AuthProvider({ children }: { children: ReactNode }){
     }
 
     return (
-        <AuthContext.Provider value={{user: neonUser, isLoading, saveProfile, generatePlan, refreshData, plan}}>
+        <AuthContext.Provider value={{user: neonUser, isLoading, profile, saveProfile, generatePlan, refreshData, plan}}>
             {children}
         </AuthContext.Provider>
         );  

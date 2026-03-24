@@ -26,6 +26,10 @@ async function get(path: string) {
   return res.json();
 }
 export const api = {
+  getProfile: (userId: string) => {
+    return get(`/profile?userId=${userId}`);
+  },
+
   saveProfile: (
     userId: string,
     profile: Omit<UserProfile, "userId" | "updatedAt">,
