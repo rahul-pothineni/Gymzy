@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import type { DaySchedule, PlanSummary, WorkoutSession } from "../types";
 import { Select } from "../components/ui/Select";
-import { Button } from "../components/ui/Button";
 import { DaySelector } from "../components/tracker/DaySelector";
 import { SessionForm } from "../components/tracker/SessionForm";
 import { SessionHistory } from "../components/tracker/SessionHistory";
@@ -17,7 +16,6 @@ function getTodayDate() {
 
 export default function Tracker() {
   const { user, isLoading: authLoading } = useAuth();
-  const navigate = useNavigate();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"workout" | "history">("workout");
@@ -38,7 +36,11 @@ export default function Tracker() {
 
   // Load plans + check for today's session on mount
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     async function init() {
       setLoading(true);
@@ -50,7 +52,7 @@ export default function Tracker() {
 
         setPlans(allPlans);
         if (allPlans.length > 0) {
-          setSelectedPlanId(allPlans[0].id); // latest version first
+          setSelectedPlanId(allPlans[0].id);
         }
 
         if (todaySession) {
@@ -88,7 +90,6 @@ export default function Tracker() {
     }
   }
 
-  // Get the selected plan object
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
   async function handleDaySelect(day: DaySchedule) {
@@ -145,22 +146,19 @@ export default function Tracker() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--color-accent)]" />
+        <Loader2 className="w-6 h-6 animate-spin text-[var(--color-foreground)]" />
       </div>
     );
   }
 
   if (!user) {
-    navigate("/auth/sign-in");
-    return null;
+    return <Navigate to="/auth/sign-in" replace />;
   }
 
   if (plans.length === 0) {
-    navigate("/onboarding");
-    return null;
+    return <Navigate to="/onboarding" replace />;
   }
 
-  // Find the matching plan day for the active session
   const sessionPlanDay = session
     ? plans
         .find((p) => p.id === session.planId)
@@ -168,9 +166,9 @@ export default function Tracker() {
     : null;
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
+    <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Tracker</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-6">Tracker</h1>
 
         {/* Tab bar */}
         <div className="flex gap-1 mb-8 border-b border-[var(--color-border)]">
@@ -197,7 +195,7 @@ export default function Tracker() {
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm mb-4">{error}</p>
+          <p className="text-[var(--color-error)] text-sm mb-4">{error}</p>
         )}
 
         {/* Today's Workout tab */}
@@ -212,7 +210,6 @@ export default function Tracker() {
               />
             ) : (
               <div className="space-y-6">
-                {/* Plan selector */}
                 <Select
                   label="Select Plan"
                   value={selectedPlanId}
@@ -223,10 +220,9 @@ export default function Tracker() {
                   }))}
                 />
 
-                {/* Day selector */}
                 {selectedPlan && (
                   <>
-                    <h2 className="text-lg font-semibold">Pick a day</h2>
+                    <h2 className="text-lg font-semibold tracking-tight">Pick a day</h2>
                     {isCreating ? (
                       <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
                         <Loader2 className="w-5 h-5 animate-spin mr-2" />

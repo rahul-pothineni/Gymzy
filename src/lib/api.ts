@@ -74,6 +74,10 @@ export const api = {
     return get(`/plan/all?userId=${userId}`);
   },
 
+  updatePlan: (planId: string, userId: string, weeklySchedule: import("../types").DaySchedule[]) => {
+    return put(`/plan/${planId}`, { userId, weeklySchedule });
+  },
+
   createSession: (data: {
     userId: string;
     planId: string;

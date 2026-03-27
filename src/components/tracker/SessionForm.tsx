@@ -55,8 +55,8 @@ export function SessionForm({
       <Card variant="bordered">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold">{planDay.day}</h2>
-            <p className="text-sm text-[var(--color-accent)]">{planDay.focus}</p>
+            <h2 className="text-lg font-semibold tracking-tight">{planDay.day}</h2>
+            <p className="text-sm text-[var(--color-muted)]">{planDay.focus}</p>
           </div>
           <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
             <span>{session.sessionDate}</span>
@@ -85,7 +85,7 @@ export function SessionForm({
       })}
 
       {/* Action buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 pt-4 border-t border-[var(--color-border)]">
         <Button
           variant="secondary"
           onClick={() => onSave(buildPayload())}

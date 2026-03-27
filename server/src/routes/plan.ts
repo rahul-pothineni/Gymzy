@@ -94,6 +94,51 @@ planRouter.get("/all", async (req: Request, res: Response) => {
   }
 });
 
+planRouter.put("/:planId", async (req: Request, res: Response) => {
+  try {
+    const planId = req.params.planId as string;
+    const { userId, weeklySchedule } = req.body;
+
+    if (!userId || !weeklySchedule) {
+      return res.status(400).json({ error: "userId and weeklySchedule are required" });
+    }
+
+    const plan = await prisma.model_training_plans.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    if (plan.user_id !== userId) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const planJson = plan.plan_json as any;
+    planJson.weeklySchedule = weeklySchedule;
+
+    const updated = await prisma.model_training_plans.update({
+      where: { id: planId },
+      data: {
+        plan_json: planJson,
+        plan_text: JSON.stringify(planJson, null, 2),
+      },
+    });
+
+    res.json({
+      id: updated.id,
+      userId: updated.user_id,
+      planJson: updated.plan_json,
+      version: updated.version,
+      createdAt: updated.createdAt,
+    });
+  } catch (error) {
+    console.error("Error updating plan:", error);
+    res.status(500).json({ error: "Failed to update plan" });
+  }
+});
+
 planRouter.get("/current", async (req: Request, res: Response) => {
   try {
     const userId = req.query.userId as string;

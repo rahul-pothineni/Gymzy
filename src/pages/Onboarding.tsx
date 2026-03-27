@@ -95,17 +95,17 @@ export default function Onboarding(){
     //only shows page contents if the user is signed in
     return (
         <SignedIn> 
-            <div className = "min-h-screen pt-24 pb-12 px-6">
+            <div className = "min-h-screen pt-24 pb-12 px-4 sm:px-6">
                 <div className = "max-w-xl mx-auto">
                     {/* Progress Bar for onboarding */}
 
                     {/* Questionnaire */}
                     {!isGenerating ? <Card variant = "bordered">
-                        <h1 className="text-2xl font-bold mb-2">Tell Us About Your Goals</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight mb-2">Tell Us About Your Goals</h1>
                         <p className = "text-[var(--color-muted)] mb-6">
                             Help us create a personalized workout plan for you.
                         </p>
-                        <form onSubmit = {submitForm} className = "space-y-4"> {/*form for the questionnaire*/}
+                        <form onSubmit = {submitForm} className = "space-y-5"> {/*form for the questionnaire*/}
                             <Select 
                                 id = "goal" 
                                 label="What's your primary goal?"
@@ -150,9 +150,9 @@ export default function Onboarding(){
                         {/* AI Generation vvv*/} 
                     </Card>: (
                         
-                        <Card variant = "bordered" className = "text-center py-16">
-                            <Loader2 className = "w-10 h-10 mx-auto animate-spin mb-6 text-[var(--color-accent)]"/>
-                            <h1 className = "text-2xl font-bold mb-2">Generating your plan</h1>
+                        <Card variant = "bordered" className = "text-center py-20">
+                            <Loader2 className = "w-10 h-10 mx-auto animate-spin mb-6 text-[var(--color-foreground)]"/>
+                            <h1 className = "text-2xl font-semibold tracking-tight mb-2">Generating your plan</h1>
                             <p className = "text-[var(--color-muted)] mb-6">Our AI is working on creating a personalized workout plan for you.</p>
                         </Card>
                     )}

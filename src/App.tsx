@@ -12,7 +12,7 @@ import AuthProvider from "./context/AuthContext";
 
 function App() {
   return(
-    <NeonAuthUIProvider authClient={authClient} defaultTheme="dark">
+    <NeonAuthUIProvider authClient={authClient} defaultTheme="light">
       <AuthProvider>
         <BrowserRouter>
           <div className = "min-h-screen flex flex-col">

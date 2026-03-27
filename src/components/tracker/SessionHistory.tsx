@@ -111,23 +111,23 @@ export function SessionHistory({
               <div className="flex items-center gap-4">
                 <div>
                   <h4 className="font-semibold">{session.dayLabel}</h4>
-                  <p className="text-sm text-[var(--color-accent)]">{session.focus}</p>
+                  <p className="text-sm text-[var(--color-muted)]">{session.focus}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+                <div className="hidden sm:flex items-center gap-2 text-sm text-[var(--color-muted)]">
                   <Calendar className="w-4 h-4" />
                   <span>{session.sessionDate}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+                <div className="hidden sm:flex items-center gap-2 text-sm text-[var(--color-muted)]">
                   <Dumbbell className="w-4 h-4" />
                   <span>{session.exercises.length}</span>
                 </div>
                 {session.completed ? (
-                  <CheckCircle className="w-5 h-5 text-[var(--color-accent)]" />
+                  <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
                 ) : (
-                  <Clock className="w-5 h-5 text-yellow-400" />
+                  <Clock className="w-5 h-5 text-[var(--color-warning)]" />
                 )}
                 {isExpanded ? (
                   <ChevronUp className="w-4 h-4 text-[var(--color-muted)]" />
