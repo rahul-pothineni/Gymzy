@@ -19,30 +19,28 @@ export async function requireAuth(
   }
 
   const token = authHeader.slice(7);
-  const neonAuthUrl = process.env.NEON_AUTH_URL;
-
-  if (!neonAuthUrl) {
-    console.error("NEON_AUTH_URL not configured");
-    return res.status(500).json({ error: "Server configuration error" });
-  }
 
   try {
-    const response = await fetch(`${neonAuthUrl}/get-session`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      return res.status(401).json({ error: "Invalid or expired session" });
+    // Decode JWT payload (NeonAuth issues standard JWTs)
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return res.status(401).json({ error: "Invalid token format" });
     }
 
-    const data = await response.json();
-    if (!data?.session?.userId) {
-      return res.status(401).json({ error: "Invalid session" });
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    );
+
+    if (!payload.sub) {
+      return res.status(401).json({ error: "Invalid token payload" });
     }
 
-    req.userId = data.session.userId;
+    // Check expiration
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return res.status(401).json({ error: "Token expired" });
+    }
+
+    req.userId = payload.sub;
     next();
   } catch (error) {
     console.error("Auth validation error:", error);

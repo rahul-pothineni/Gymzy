@@ -27,7 +27,7 @@ export interface PlanOverview{
     goal: string;
     frequency: string;
     split: string;
-    notes: number;
+    notes: string;
 }
 
 export interface DaySchedule{

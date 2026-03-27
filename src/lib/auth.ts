@@ -6,9 +6,12 @@ export const authClient = createAuthClient(
 export async function getAuthToken(): Promise<string | null> {
   try {
     const session = await authClient.getSession();
-    if (session?.data?.session?.token) {
-      return session.data.session.token;
-    }
+    const data = session?.data as any;
+
+    if (data?.session?.token) return data.session.token;
+    if (data?.token) return data.token;
+    if (data?.accessToken) return data.accessToken;
+
     return null;
   } catch {
     return null;

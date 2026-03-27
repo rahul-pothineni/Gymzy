@@ -24,6 +24,16 @@ trackerRouter.post("/sessions", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid session date" });
     }
 
+    // Verify the plan belongs to this user
+    const plan = await prisma.model_training_plans.findFirst({
+      where: { id: planId, user_id: userId },
+      select: { id: true },
+    });
+
+    if (!plan) {
+      return res.status(403).json({ error: "Plan not found or unauthorized" });
+    }
+
     // Check for existing session on this date + day
     const existing = await prisma.workout_sessions.findFirst({
       where: {
@@ -80,6 +90,10 @@ trackerRouter.get("/sessions/today", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "date query parameter is required" });
     }
 
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date).getTime())) {
+      return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
     const session = await prisma.workout_sessions.findFirst({
       where: {
         user_id: userId,
@@ -134,7 +148,17 @@ trackerRouter.put("/sessions/:sessionId", async (req: Request, res: Response) =>
       });
 
       if (exercises && Array.isArray(exercises)) {
+        // Verify all exercise IDs belong to this session
+        const sessionExercises = await tx.session_exercises.findMany({
+          where: { session_id: sessionId },
+          select: { id: true },
+        });
+        const validIds = new Set(sessionExercises.map((e) => e.id));
+
         for (const ex of exercises) {
+          if (!validIds.has(ex.id)) {
+            throw new Error("Exercise does not belong to this session");
+          }
           await tx.session_exercises.update({
             where: { id: ex.id },
             data: {
@@ -162,8 +186,8 @@ trackerRouter.put("/sessions/:sessionId", async (req: Request, res: Response) =>
 trackerRouter.get("/sessions", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+    const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
