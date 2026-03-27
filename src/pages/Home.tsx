@@ -33,7 +33,7 @@ export default function Home() {
           </h1>
 
           <p className="text-lg text-[var(--color-muted)] leading-relaxed max-w-lg mx-auto mb-10">
-            AI-powered workout plans tailored to your goals. Track every set, every rep, every session — all in one place!
+            AI-powered workout plans tailored to your goals. Track every set, every rep, every session: all in one place!
           </p>
 
           <Link to={isLoading ? "#" : getCtaLink()}>
