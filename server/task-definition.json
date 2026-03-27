@@ -1,0 +1,46 @@
+{
+  "family": "gymzy-server",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::102259124178:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "gymzy-server",
+      "image": "102259124178.dkr.ecr.us-east-1.amazonaws.com/gymzy-server:latest",
+      "portMappings": [
+        {
+          "containerPort": 3001,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "3001" },
+        { "name": "FRONTEND_URL", "value": "http://localhost:5173" }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-1:102259124178:parameter/gymzy/DATABASE_URL"
+        },
+        {
+          "name": "OPEN_ROUTER_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-1:102259124178:parameter/gymzy/OPEN_ROUTER_KEY"
+        },
+        {
+          "name": "NEON_AUTH_URL",
+          "valueFrom": "arn:aws:ssm:us-east-1:102259124178:parameter/gymzy/NEON_AUTH_URL"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/gymzy-server",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
