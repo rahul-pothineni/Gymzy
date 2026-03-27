@@ -25,6 +25,9 @@ export default function Navbar(){
                         <Link to="/profile">
                             <Button variant = "ghost" size = "sm">My Plan</Button>
                         </Link>
+                        <Link to="/tracker">
+                            <Button variant = "ghost" size = "sm">Tracker</Button>
+                        </Link>
                         <UserButton className = "bg-(--color-accent)"/>
                     </> 
                     

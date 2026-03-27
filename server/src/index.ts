@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { profileRouter } from "./routes/profile";
 import { planRouter } from "./routes/plan";
+import { trackerRouter } from "./routes/tracker";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -15,6 +16,7 @@ app.use(express.json());
 //API routes
 app.use("/api/profile", profileRouter);
 app.use("/api/plan", planRouter);
+app.use("/api/tracker", trackerRouter);
 
 
 

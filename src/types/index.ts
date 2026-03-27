@@ -45,3 +45,40 @@ export interface Exercise{
     notes?: string;
     alternatives?: string[];
 }
+
+export interface PlanSummary {
+    id: string;
+    version: number;
+    createdAt: string;
+    overview: PlanOverview;
+    weeklySchedule: DaySchedule[];
+}
+
+export interface SetData {
+    setNumber: number;
+    weight: number | null;
+    repsCompleted: number | null;
+    notes: string;
+}
+
+export interface SessionExercise {
+    id: string;
+    sessionId: string;
+    exerciseName: string;
+    exerciseOrder: number;
+    setsData: SetData[];
+    skipped: boolean;
+}
+
+export interface WorkoutSession {
+    id: string;
+    userId: string;
+    planId: string;
+    dayLabel: string;
+    focus: string;
+    completed: boolean;
+    notes?: string;
+    sessionDate: string;
+    createdAt: string;
+    exercises: SessionExercise[];
+}

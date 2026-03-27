@@ -64,6 +64,36 @@ planRouter.post("/generate", async (req: Request, res: Response) => {
   }
 });
 
+planRouter.get("/all", async (req: Request, res: Response) => {
+  try {
+    const userId = req.query.userId as string;
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    const plans = await prisma.model_training_plans.findMany({
+      where: { user_id: userId },
+      orderBy: { version: "desc" },
+    });
+
+    res.json(
+      plans.map((plan) => {
+        const planJson = plan.plan_json as any;
+        return {
+          id: plan.id,
+          version: plan.version,
+          createdAt: plan.createdAt,
+          overview: planJson.overview,
+          weeklySchedule: planJson.weeklySchedule,
+        };
+      })
+    );
+  } catch (error) {
+    console.error("Error fetching plans:", error);
+    res.status(500).json({ error: "Failed to fetch plans" });
+  }
+});
+
 planRouter.get("/current", async (req: Request, res: Response) => {
   try {
     const userId = req.query.userId as string;
