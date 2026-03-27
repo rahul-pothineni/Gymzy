@@ -91,6 +91,7 @@ export function ExerciseTracker({
                 placeholder="lbs"
                 inputMode="decimal"
                 min={0}
+                max={9999}
                 value={set.weight ?? ""}
                 onChange={(e) =>
                   handleSetChange(i, "weight", e.target.value)
@@ -101,6 +102,7 @@ export function ExerciseTracker({
                 placeholder="reps"
                 inputMode="numeric"
                 min={0}
+                max={999}
                 value={set.repsCompleted ?? ""}
                 onChange={(e) =>
                   handleSetChange(i, "repsCompleted", e.target.value)

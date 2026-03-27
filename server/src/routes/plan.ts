@@ -1,12 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import { prisma } from "../lib/Prisma";
 import { generateTrainingPlan } from "../lib/ai";
+import { validate, updatePlanSchema } from "../lib/validation";
 
 export const planRouter = Router();
 
 planRouter.post("/generate", async (req: Request, res: Response) => {
   try {
-    const { userId } = req.body;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
@@ -38,7 +39,6 @@ planRouter.post("/generate", async (req: Request, res: Response) => {
       console.error("AI generation failed:", error);
       return res.status(500).json({
         error: "Failed to generate training plan. Please try again.",
-        details: error instanceof Error ? error.message : "Unknown error",
       });
     }
 
@@ -66,7 +66,7 @@ planRouter.post("/generate", async (req: Request, res: Response) => {
 
 planRouter.get("/all", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
+    const userId = req.userId;
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
     }
@@ -97,10 +97,16 @@ planRouter.get("/all", async (req: Request, res: Response) => {
 planRouter.put("/:planId", async (req: Request, res: Response) => {
   try {
     const planId = req.params.planId as string;
-    const { userId, weeklySchedule } = req.body;
+    const userId = req.userId;
+    const { weeklySchedule } = req.body;
 
     if (!userId || !weeklySchedule) {
-      return res.status(400).json({ error: "userId and weeklySchedule are required" });
+      return res.status(400).json({ error: "weeklySchedule is required" });
+    }
+
+    const validation = validate(updatePlanSchema, { weeklySchedule });
+    if (!validation.success) {
+      return res.status(400).json({ error: (validation as { success: false; error: string }).error });
     }
 
     const plan = await prisma.model_training_plans.findUnique({
@@ -141,7 +147,7 @@ planRouter.put("/:planId", async (req: Request, res: Response) => {
 
 planRouter.get("/current", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
+    const userId = req.userId;
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
     }

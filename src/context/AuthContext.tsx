@@ -61,8 +61,8 @@ export default function AuthProvider({ children }: { children: ReactNode }){
         try {
             //fetch profile and plan in parallel
             const [profileData, planData] = await Promise.all([
-                api.getProfile(neonUser.id).catch(() => null),
-                api.getCurrentPlan(neonUser.id).catch(() => null),
+                api.getProfile().catch(() => null),
+                api.getCurrentPlan().catch(() => null),
             ]);
 
             if (profileData) {
@@ -101,7 +101,7 @@ export default function AuthProvider({ children }: { children: ReactNode }){
             throw new Error("User not authenticated");
         }
 
-        await api.saveProfile(neonUser.id, profile);
+        await api.saveProfile(profile);
         await refreshData();
     }
 
@@ -110,7 +110,7 @@ export default function AuthProvider({ children }: { children: ReactNode }){
             throw new Error("User must be authenticated to generate a plan");
         };
 
-        await api.generatePlan(neonUser.id);
+        await api.generatePlan();
         await refreshData();
     }
 

@@ -1,11 +1,21 @@
 
 import type { UserProfile } from "../types";
+import { getAuthToken } from "./auth";
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 async function post(path: string, body: object) {
   const res = await fetch(`${BASE_URL}/api${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -18,7 +28,9 @@ async function post(path: string, body: object) {
 }
 
 async function get(path: string) {
-  const res = await fetch(`${BASE_URL}/api${path}`);
+  const res = await fetch(`${BASE_URL}/api${path}`, {
+    headers: await authHeaders(),
+  });
   if (!res.ok)
     throw new Error(
       (await res.json().catch(() => ({}))).error || "Request failed",
@@ -29,7 +41,7 @@ async function get(path: string) {
 async function put(path: string, body: object) {
   const res = await fetch(`${BASE_URL}/api${path}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -42,7 +54,10 @@ async function put(path: string, body: object) {
 }
 
 async function del(path: string) {
-  const res = await fetch(`${BASE_URL}/api${path}`, { method: "DELETE" });
+  const res = await fetch(`${BASE_URL}/api${path}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
   if (!res.ok)
     throw new Error(
       (await res.json().catch(() => ({}))).error || "Request failed",
@@ -51,35 +66,33 @@ async function del(path: string) {
 }
 
 export const api = {
-  getProfile: (userId: string) => {
-    return get(`/profile?userId=${userId}`);
+  getProfile: () => {
+    return get(`/profile`);
   },
 
   saveProfile: (
-    userId: string,
     profile: Omit<UserProfile, "userId" | "updatedAt">,
   ) => {
-    return post("/profile", { userId, ...profile });
+    return post("/profile", { ...profile });
   },
 
-  generatePlan: (userId: string) => {
-    return post("/plan/generate", { userId });
+  generatePlan: () => {
+    return post("/plan/generate", {});
   },
 
-  getCurrentPlan: (userId: string) => {
-    return get(`/plan/current?userId=${userId}`);
+  getCurrentPlan: () => {
+    return get(`/plan/current`);
   },
 
-  getAllPlans: (userId: string) => {
-    return get(`/plan/all?userId=${userId}`);
+  getAllPlans: () => {
+    return get(`/plan/all`);
   },
 
-  updatePlan: (planId: string, userId: string, weeklySchedule: import("../types").DaySchedule[]) => {
-    return put(`/plan/${planId}`, { userId, weeklySchedule });
+  updatePlan: (planId: string, weeklySchedule: import("../types").DaySchedule[]) => {
+    return put(`/plan/${planId}`, { weeklySchedule });
   },
 
   createSession: (data: {
-    userId: string;
     planId: string;
     dayLabel: string;
     focus: string;
@@ -89,14 +102,13 @@ export const api = {
     return post("/tracker/sessions", data);
   },
 
-  getTodaySession: (userId: string, date: string) => {
-    return get(`/tracker/sessions/today?userId=${userId}&date=${date}`);
+  getTodaySession: (date: string) => {
+    return get(`/tracker/sessions/today?date=${date}`);
   },
 
   updateSession: (
     sessionId: string,
     data: {
-      userId: string;
       completed?: boolean;
       notes?: string;
       exercises: Array<{
@@ -109,11 +121,11 @@ export const api = {
     return put(`/tracker/sessions/${sessionId}`, data);
   },
 
-  getSessions: (userId: string, limit = 20, offset = 0) => {
-    return get(`/tracker/sessions?userId=${userId}&limit=${limit}&offset=${offset}`);
+  getSessions: (limit = 20, offset = 0) => {
+    return get(`/tracker/sessions?limit=${limit}&offset=${offset}`);
   },
 
-  deleteSession: (sessionId: string, userId: string) => {
-    return del(`/tracker/sessions/${sessionId}?userId=${userId}`);
+  deleteSession: (sessionId: string) => {
+    return del(`/tracker/sessions/${sessionId}`);
   },
 };

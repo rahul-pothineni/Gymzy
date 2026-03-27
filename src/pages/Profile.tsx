@@ -51,7 +51,7 @@ export default function Profile() {
     if (!user || !plan || !editedSchedule) return;
     setIsSaving(true);
     try {
-      await api.updatePlan(plan.id, user.id, editedSchedule);
+      await api.updatePlan(plan.id, editedSchedule);
       await refreshData();
       setIsEditing(false);
       setEditedSchedule(null);

@@ -1,15 +1,27 @@
 import { Router, type Request, type Response } from "express";
 import { prisma } from "../lib/Prisma";
+import { validate, createSessionSchema, updateSessionSchema } from "../lib/validation";
 
 export const trackerRouter = Router();
 
 // POST /sessions — Create a new workout session
 trackerRouter.post("/sessions", async (req: Request, res: Response) => {
   try {
-    const { userId, planId, dayLabel, focus, sessionDate, exercises } = req.body;
+    const userId = req.userId;
+    const { planId, dayLabel, focus, sessionDate, exercises } = req.body;
 
-    if (!userId || !planId || !dayLabel || !sessionDate) {
-      return res.status(400).json({ error: "userId, planId, dayLabel, and sessionDate are required" });
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    const validation = validate(createSessionSchema, { planId, dayLabel, focus, sessionDate, exercises });
+    if (!validation.success) {
+      return res.status(400).json({ error: (validation as { success: false; error: string }).error });
+    }
+
+    // Validate that sessionDate is a real date
+    if (isNaN(new Date(sessionDate).getTime())) {
+      return res.status(400).json({ error: "Invalid session date" });
     }
 
     // Check for existing session on this date + day
@@ -61,11 +73,11 @@ trackerRouter.post("/sessions", async (req: Request, res: Response) => {
 // GET /sessions/today — Get session for a specific date
 trackerRouter.get("/sessions/today", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
+    const userId = req.userId;
     const date = req.query.date as string;
 
     if (!userId || !date) {
-      return res.status(400).json({ error: "userId and date are required" });
+      return res.status(400).json({ error: "date query parameter is required" });
     }
 
     const session = await prisma.workout_sessions.findFirst({
@@ -91,10 +103,16 @@ trackerRouter.get("/sessions/today", async (req: Request, res: Response) => {
 trackerRouter.put("/sessions/:sessionId", async (req: Request, res: Response) => {
   try {
     const sessionId = req.params.sessionId as string;
-    const { userId, completed, notes, exercises } = req.body;
+    const userId = req.userId;
+    const { completed, notes, exercises } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    const validation = validate(updateSessionSchema, { completed, notes, exercises });
+    if (!validation.success) {
+      return res.status(400).json({ error: (validation as { success: false; error: string }).error });
     }
 
     // Verify ownership
@@ -143,12 +161,12 @@ trackerRouter.put("/sessions/:sessionId", async (req: Request, res: Response) =>
 // GET /sessions — List previous sessions (paginated)
 trackerRouter.get("/sessions", async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
+    const userId = req.userId;
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
 
     if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
+      return res.status(400).json({ error: "User ID is required" });
     }
 
     const [sessions, total] = await Promise.all([
@@ -177,10 +195,10 @@ trackerRouter.get("/sessions", async (req: Request, res: Response) => {
 trackerRouter.delete("/sessions/:sessionId", async (req: Request, res: Response) => {
   try {
     const sessionId = req.params.sessionId as string;
-    const userId = req.query.userId as string;
+    const userId = req.userId;
 
     if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
+      return res.status(400).json({ error: "User ID is required" });
     }
 
     const session = await prisma.workout_sessions.findFirst({

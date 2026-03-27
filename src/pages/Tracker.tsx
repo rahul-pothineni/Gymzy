@@ -46,8 +46,8 @@ export default function Tracker() {
       setLoading(true);
       try {
         const [allPlans, todaySession] = await Promise.all([
-          api.getAllPlans(user!.id),
-          api.getTodaySession(user!.id, getTodayDate()),
+          api.getAllPlans(),
+          api.getTodaySession(getTodayDate()),
         ]);
 
         setPlans(allPlans);
@@ -80,7 +80,7 @@ export default function Tracker() {
     setHistoryLoading(true);
     try {
       const offset = reset ? 0 : history.length;
-      const data = await api.getSessions(user.id, 20, offset);
+      const data = await api.getSessions(20, offset);
       setHistory(reset ? data.sessions : [...history, ...data.sessions]);
       setHasMore(data.hasMore);
     } catch (err) {
@@ -98,7 +98,6 @@ export default function Tracker() {
     setError("");
     try {
       const newSession = await api.createSession({
-        userId: user.id,
         planId: selectedPlan.id,
         dayLabel: day.day,
         focus: day.focus,
@@ -124,7 +123,6 @@ export default function Tracker() {
     setError("");
     try {
       const saved = await api.updateSession(updated.id, {
-        userId: user.id,
         completed: completed ?? updated.completed,
         notes: updated.notes,
         exercises: updated.exercises.map((ex) => ({
