@@ -57,7 +57,7 @@ export default function Onboarding(){
 
 
     const [isGenerating, setIsGenerating] = useState(false);
-    const [error, setError] = useState("");
+    const [_error, setError] = useState("");
     const navigate = useNavigate();
 
     async function submitForm(e: React.SubmitEvent){

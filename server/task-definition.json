@@ -17,7 +17,7 @@
       ],
       "environment": [
         { "name": "PORT", "value": "3001" },
-        { "name": "FRONTEND_URL", "value": "http://localhost:5173" }
+        { "name": "FRONTEND_URL", "value": "https://gymzy-six.vercel.app" }
       ],
       "secrets": [
         {
