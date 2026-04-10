@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { prisma } from "../lib/Prisma";
 import { generateTrainingPlan } from "../lib/ai";
 import { validate, updatePlanSchema } from "../lib/validation";
+import { cacheGet, cacheSet, cacheDel } from "../lib/redis";
 
 export const planRouter = Router();
 
@@ -53,6 +54,7 @@ planRouter.post("/generate", async (req: Request, res: Response) => {
       },
     });
 
+    await cacheDel(`plan:current:${userId}`);
     res.json({
       id: newPlan.id,
       version: newPlan.version,
@@ -132,6 +134,7 @@ planRouter.put("/:planId", async (req: Request, res: Response) => {
       },
     });
 
+    await cacheDel(`plan:current:${userId}`);
     res.json({
       id: updated.id,
       userId: updated.user_id,
@@ -152,6 +155,10 @@ planRouter.get("/current", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "User ID is required" });
     }
 
+    const cacheKey = `plan:current:${userId}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
+
     const plan = await prisma.model_training_plans.findFirst({
       where: { user_id: userId },
       orderBy: { createdAt: "desc" },
@@ -161,14 +168,16 @@ planRouter.get("/current", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "No plan found" });
     }
 
-    res.json({
+    const response = {
       id: plan.id,
       userId: plan.user_id,
       planJson: plan.plan_json,
       planText: plan.plan_text,
       version: plan.version,
       createdAt: plan.createdAt,
-    });
+    };
+    await cacheSet(cacheKey, JSON.stringify(response), 3600);
+    res.json(response);
   } catch (error) {
     console.error("Error fetching plan:", error);
     res.status(500).json({ error: "Failed to fetch plan" });

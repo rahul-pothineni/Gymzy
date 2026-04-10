@@ -1,250 +1,224 @@
-Tracker Feature Implementation Plan
-
+Redis Caching Layer for Auth/Profile                                                                                                                                     
+                                                        
  Context
 
- The Gymzy app currently lets users generate AI workout plans and view them on a Profile page. There's no way to log actual workouts — users can see
- what they should do but can't record what they actually did. This feature adds a Tracker page where users select a day from their plan, log
- weight/reps/notes per set for each exercise, save the session, and review past sessions in a History tab (expandable cards).
+ On every page load, AuthContext calls authClient.getSession() (external Neon Auth network call), then immediately fires two parallel Postgres queries (/api/profile and
+ /api/plan/current). The user perceives a ~500ms delay before their data appears. Redis caching eliminates the DB round-trip on repeat visits, and a sessionStorage
+ stale-while-revalidate layer on the frontend shows cached data the moment getSession() resolves.
+
+ The redis v5 package exists in the root package.json but is unused. The server (server/) has its own package.json with no redis dependency — it needs to be installed
+ there.
 
  ---
- 1. Database Schema (Prisma)
+ Implementation Steps
 
- File: server/prisma/schema.prisma
+ Step 1 — Install redis in the server
 
- Add two new models:
+ cd server && npm install redis
 
- model workout_sessions {
-   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-   user_id      String   @db.Uuid
-   plan_id      String   @db.Uuid
-   day_label    String   @db.VarChar(50)    // "Monday" — copied from DaySchedule.day
-   focus        String   @db.VarChar(100)   // "Push" — copied from DaySchedule.focus
-   completed    Boolean  @default(false)
-   notes        String?  @db.Text
-   session_date DateTime @db.Date
-   created_at   DateTime @default(now()) @db.Timestamptz(6)
+ No root package.json changes needed.
 
-   exercises session_exercises[]
+ ---
+ Step 2 — Create Redis client module
 
-   @@index([user_id])
-   @@index([user_id, session_date])
+ New file: server/src/lib/redis.ts
+
+ - Read REDIS_URL from process.env. If absent, all helpers are no-ops (graceful fallback — app works without Redis).
+ - Export cacheGet(key), cacheSet(key, value, ttlSeconds), cacheDel(...keys) — each wraps Redis calls in try/catch that logs a warning and returns null/void on failure.
+ - Register an error listener on the client so unhandled Redis errors don't crash the Node process.
+ - Check client.isOpen before each operation (handles connect-then-disconnect scenarios).
+
+ // server/src/lib/redis.ts
+ import { createClient } from "redis";
+
+ const REDIS_URL = process.env.REDIS_URL;
+ let client: ReturnType<typeof createClient> | null = null;
+
+ if (REDIS_URL) {
+   client = createClient({ url: REDIS_URL });
+   client.on("error", (err) => console.warn("[redis] error:", err.message));
+   client.connect().catch((err) => console.warn("[redis] connect failed:", err.message));
  }
 
- model session_exercises {
-   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-   session_id    String  @db.Uuid
-   exercise_name String  @db.VarChar(200)
-   exercise_order Int
-   sets_data     Json    // Array<{ setNumber, weight, repsCompleted, notes }>
-   skipped       Boolean @default(false)
-
-   session workout_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade)
-
-   @@index([session_id])
+ export async function cacheGet(key: string): Promise<string | null> {
+   if (!client?.isOpen) return null;
+   try { return await client.get(key); }
+   catch (e) { console.warn("[redis] GET failed:", e); return null; }
  }
 
- Key decisions:
- - sets_data as JSONB array (matches existing plan_json pattern — avoids a 4th table)
- - day_label/focus denormalized from plan so sessions remain valid if the plan is regenerated
- - Cascade delete: removing a session removes its exercises
-
- Run migration: cd server && npx prisma migrate dev --name add_workout_tracking
-
- ---
- 2. Backend API Routes
-
- New file: server/src/routes/tracker.ts
- Register in: server/src/index.ts — add app.use("/api/tracker", trackerRouter)
-
- ┌────────┬──────────────────────────────────────────┬───────────────────────────────────────────────────────────────┐
- │ Method │                 Endpoint                 │                            Purpose                            │
- ├────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────┤
- │ POST   │ /sessions                                │ Create a session for a day (with empty set data per exercise) │
- ├────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────┤
- │ GET    │ /sessions/today?userId=X&date=YYYY-MM-DD │ Get session for a specific date (resume in-progress)          │
- ├────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────┤
- │ PUT    │ /sessions/:sessionId                     │ Save exercise progress / mark complete                        │
- ├────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────┤
- │ GET    │ /sessions?userId=X&limit=20&offset=0     │ List previous sessions (paginated, newest first)              │
- ├────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────┤
- │ DELETE │ /sessions/:sessionId                     │ Delete a session                                              │
- └────────┴──────────────────────────────────────────┴───────────────────────────────────────────────────────────────┘
-
- POST /sessions request body:
- {
-   userId: string,
-   planId: string,
-   dayLabel: string,
-   focus: string,
-   sessionDate: string,       // "2026-03-26"
-   exercises: Array<{ exerciseName: string, order: number, setsCount: number }>
- }
- - Checks for duplicate (same user + date + dayLabel) — returns existing if found
- - Creates workout_sessions + session_exercises with empty sets_data: [{ setNumber: 1, weight: null, repsCompleted: null, notes: "" }, ...]
-
- PUT /sessions/:sessionId request body:
- {
-   userId: string,
-   completed?: boolean,
-   notes?: string,
-   exercises: Array<{
-     id: string,
-     setsData: Array<{ setNumber: number, weight: number | null, repsCompleted: number | null, notes: string }>,
-     skipped?: boolean
-   }>
- }
- - Uses prisma.$transaction to update session + all exercises atomically
-
- GET /sessions returns sessions ordered by session_date desc, with include: { exercises: true }.
-
- ---
- 3. Frontend Types
-
- File: src/types/index.ts — add:
-
- export interface SetData {
-   setNumber: number
-   weight: number | null
-   repsCompleted: number | null
-   notes: string
+ export async function cacheSet(key: string, value: string, ttlSeconds: number): Promise<void> {
+   if (!client?.isOpen) return;
+   try { await client.set(key, value, { EX: ttlSeconds }); }
+   catch (e) { console.warn("[redis] SET failed:", e); }
  }
 
- export interface SessionExercise {
-   id: string
-   sessionId: string
-   exerciseName: string
-   exerciseOrder: number
-   setsData: SetData[]
-   skipped: boolean
+ export async function cacheDel(...keys: string[]): Promise<void> {
+   if (!client?.isOpen) return;
+   try { await client.del(keys); }
+   catch (e) { console.warn("[redis] DEL failed:", e); }
  }
 
- export interface WorkoutSession {
-   id: string
-   userId: string
-   planId: string
-   dayLabel: string
-   focus: string
-   completed: boolean
-   notes?: string
-   sessionDate: string
-   createdAt: string
-   exercises: SessionExercise[]
+ Cache keys and TTLs:
+
+ ┌──────────────┬───────────────────────┬─────────────┐
+ │     Data     │          Key          │     TTL     │
+ ├──────────────┼───────────────────────┼─────────────┤
+ │ User profile │ profile:{userId}      │ 3600s (1hr) │
+ ├──────────────┼───────────────────────┼─────────────┤
+ │ Current plan │ plan:current:{userId} │ 3600s (1hr) │
+ └──────────────┴───────────────────────┴─────────────┘
+
+ Long TTL is safe because writes explicitly invalidate the key.
+
+ ---
+ Step 3 — Cache profile GET, invalidate on POST
+
+ File: server/src/routes/profile.ts
+
+ Add import { cacheGet, cacheSet, cacheDel } from "../lib/redis" at the top.
+
+ GET /api/profile — cache-aside (around lines 6–27):
+ const cacheKey = `profile:${userId}`;
+ const cached = await cacheGet(cacheKey);
+ if (cached) return res.json(JSON.parse(cached));
+
+ const profile = await prisma.user_profiles.findUnique({ where: { user_id: userId } });
+ if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+ await cacheSet(cacheKey, JSON.stringify(profile), 3600);
+ res.json(profile);
+
+ POST /api/profile — invalidate after upsert (after line 60):
+ await prisma.user_profiles.upsert(...); // existing
+ await cacheDel(`profile:${userId}`);    // new
+ res.json({ success: true });
+
+ ---
+ Step 4 — Cache plan GET /current, invalidate on generate and update
+
+ File: server/src/routes/plan.ts
+
+ Add import { cacheGet, cacheSet, cacheDel } from "../lib/redis" at the top.
+
+ GET /api/plan/current (lines 148–176) — cache the shaped response object:
+ const cacheKey = `plan:current:${userId}`;
+ const cached = await cacheGet(cacheKey);
+ if (cached) return res.json(JSON.parse(cached));
+
+ const plan = await prisma.model_training_plans.findFirst(...); // existing
+ if (!plan) return res.status(404).json({ error: "No plan found" });
+
+ const response = { id: plan.id, userId: plan.user_id, planJson: plan.plan_json,
+                    planText: plan.plan_text, version: plan.version, createdAt: plan.createdAt };
+ await cacheSet(cacheKey, JSON.stringify(response), 3600);
+ res.json(response);
+
+ Cache the shaped response object (not the raw Prisma row) so AuthContext's planData.planJson.overview etc. work correctly on cache hits.
+
+ POST /api/plan/generate — after the plan is created and saved to DB, add:
+ await cacheDel(`plan:current:${userId}`);
+
+ PUT /api/plan/:planId — after the update, add:
+ await cacheDel(`plan:current:${userId}`);
+
+ ---
+ Step 5 — Frontend sessionStorage stale-while-revalidate
+
+ File: src/context/AuthContext.tsx
+
+ Add two helpers above the component (with try/catch for private browsing quota errors):
+
+ const SESSION_CACHE_KEY = "gym:cache";
+ const SESSION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+ function readSessionCache() {
+   try {
+     const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+     if (!raw) return null;
+     const { profile, plan, cachedAt } = JSON.parse(raw);
+     if (Date.now() - cachedAt > SESSION_CACHE_TTL_MS) return null;
+     return { profile, plan };
+   } catch { return null; }
  }
 
- Also add matching types to server/types/index.ts.
+ function writeSessionCache(profile: any, plan: any) {
+   try {
+     sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({ profile, plan, cachedAt: Date.now() }));
+   } catch {}
+ }
+
+ In refreshData (the useCallback):
+
+ At the very start (before the Promise.all), read and immediately apply the cache:
+ const stale = readSessionCache();
+ if (stale) {
+   if (stale.profile) setProfile({ userId: stale.profile.user_id, ... });
+   if (stale.plan) setPlan({ id: stale.plan.id, ... });
+ }
+
+ After the Promise.all resolves and state is set, write fresh data back:
+ writeSessionCache(profileData, planData);
+
+ On sign-out (if/when a logout flow is added): sessionStorage.removeItem(SESSION_CACHE_KEY).
 
  ---
- 4. API Client Updates
+ Step 6 — Environment variables
 
- File: src/lib/api.ts
+ server/.env (local dev):
+ REDIS_URL=redis://localhost:6379
 
- Add put and del helpers following the existing post/get pattern, then add:
+ Omitting REDIS_URL is valid — the module detects its absence and skips all caching.
 
- createSession: (data) => post("/tracker/sessions", data),
- getTodaySession: (userId, date) => get(`/tracker/sessions/today?userId=${userId}&date=${date}`),
- updateSession: (sessionId, data) => put(`/tracker/sessions/${sessionId}`, data),
- getSessions: (userId, limit = 20, offset = 0) => get(`/tracker/sessions?userId=${userId}&limit=${limit}&offset=${offset}`),
- deleteSession: (sessionId) => del(`/tracker/sessions/${sessionId}`),
-
- ---
- 5. Frontend Components
-
- New page: src/pages/Tracker.tsx
-
- Two-tab layout: "Today's Workout" | "Previous Sessions"
-
- State is managed locally with useState (no AuthContext changes — tracker data is page-scoped). Plan data comes from useAuth().plan.
-
- Tab 1 — Today's Workout flow:
- 1. On mount, check if a session exists for today via api.getTodaySession()
- 2. If no session: show DaySelector — grid of clickable day cards from plan.weeklySchedule
- 3. User picks a day → api.createSession() → receives WorkoutSession with empty sets
- 4. Show SessionForm with all exercises and per-set inputs pre-populated
- 5. User fills in weight/reps/notes per set → "Save Progress" or "Complete Workout"
- 6. If session exists (resume): skip straight to SessionForm with saved data
-
- Tab 2 — Previous Sessions:
- - Fetch paginated list via api.getSessions()
- - Show session cards (date, focus, completed badge, exercise count)
- - Expandable detail showing logged sets in a read-only table
-
- New components: src/components/tracker/
-
- a) DaySelector.tsx
- - Props: weeklySchedule: DaySchedule[], onSelect: (day: DaySchedule) => void
- - Grid of Card variant="bordered" — day name bold, focus in accent, exercise count muted
- - Reuses existing Card component
-
- b) ExerciseTracker.tsx
- - Props: exercise: SessionExercise, planExercise: Exercise, onChange, onSkip
- - Shows exercise name + planned sets/reps as reference
- - Renders N rows (one per set) with 3 inputs each:
-   - Weight — <Input type="number" placeholder="lbs"> with inputMode="decimal" for mobile
-   - Reps — <Input type="number" placeholder="reps"> with inputMode="numeric" for mobile
-   - Notes — <Input type="text" placeholder="e.g. felt easy, form check"> short text per set
- - "Skip" button (ghost) to grey out the exercise
-
- c) SessionForm.tsx
- - Props: session: WorkoutSession, planDay: DaySchedule, onSave, isSaving
- - Summary header: day, focus, date, progress count
- - Maps over exercises → <ExerciseTracker> for each
- - Bottom: "Save Progress" (secondary) + "Complete Workout" (primary) buttons
- - Manages local state for all exercise edits
-
- d) SessionHistory.tsx
- - Props: sessions: WorkoutSession[], isLoading, onLoadMore, hasMore
- - Lists sessions as bordered cards
- - Each card expandable to show exercise detail table (read-only, similar to PlanDisplay)
- - "Load More" button for pagination
+ Production (Vercel + Upstash):
+ - Provision Upstash Redis from Vercel Marketplace (Storage tab)
+ - It injects a REDIS_URL (format rediss://...) which the standard redis npm package handles natively
+ - Run vercel env add REDIS_URL if setting manually
 
  ---
- 6. Route & Navigation Changes
+ Critical Files
 
- src/App.tsx — add:
- <Route path="/tracker" element={<Tracker />} />
-
- src/components/layout/Navbar.tsx — add "Tracker" link between "My Plan" and UserButton:
- <Link to="/tracker">
-   <Button variant="ghost" size="sm">Tracker</Button>
- </Link>
-
- ---
- 7. Implementation Order
-
- ┌──────┬──────────────────────────────────────────────────────────┬───────────────────────────────────────────────────┐
- │ Step │                           What                           │                       Files                       │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 1    │ Add Prisma models + run migration                        │ server/prisma/schema.prisma                       │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 2    │ Create tracker backend routes                            │ server/src/routes/tracker.ts, server/src/index.ts │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 3    │ Add frontend types                                       │ src/types/index.ts, server/types/index.ts         │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 4    │ Add API client methods (put/del helpers + tracker calls) │ src/lib/api.ts                                    │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 5    │ Build DaySelector component                              │ src/components/tracker/DaySelector.tsx            │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 6    │ Build ExerciseTracker component                          │ src/components/tracker/ExerciseTracker.tsx        │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 7    │ Build SessionForm component                              │ src/components/tracker/SessionForm.tsx            │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 8    │ Build SessionHistory component                           │ src/components/tracker/SessionHistory.tsx         │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 9    │ Build Tracker page with tabs + routing                   │ src/pages/Tracker.tsx, src/App.tsx                │
- ├──────┼──────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
- │ 10   │ Add Tracker nav link                                     │ src/components/layout/Navbar.tsx                  │
- └──────┴──────────────────────────────────────────────────────────┴───────────────────────────────────────────────────┘
+ ┌──────────────────────────────┬────────────────────────────────────────────────────────────────────────────┐
+ │             File             │                                   Change                                   │
+ ├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+ │ server/src/lib/redis.ts      │ New — Redis client + cache helpers                                         │
+ ├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+ │ server/src/routes/profile.ts │ Cache-aside on GET, invalidate on POST                                     │
+ ├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+ │ server/src/routes/plan.ts    │ Cache-aside on GET /current, invalidate on POST /generate and PUT /:planId │
+ ├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+ │ src/context/AuthContext.tsx  │ sessionStorage stale-while-revalidate in refreshData                       │
+ ├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+ │ server/.env                  │ Add REDIS_URL=redis://localhost:6379                                       │
+ ├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+ │ server/package.json          │ Gets redis dep after npm install redis                                     │
+ └──────────────────────────────┴────────────────────────────────────────────────────────────────────────────┘
 
  ---
- 8. Verification
+ Verification
 
- 1. DB: After migration, verify tables exist via npx prisma studio
- 2. Backend: Test each endpoint with curl — create session, get today, update with set data, list history, delete
- 3. Frontend E2E:
-   - Navigate to /tracker → see day selector → pick a day → see exercise inputs
-   - Fill in weight/reps/notes for each set → Save Progress → refresh page → data persists
-   - Complete Workout → shows completed badge
-   - Switch to History tab → see the completed session with logged data
-   - Edge cases: no plan (redirect to onboarding), already have today's session (resume)
+ 1. Start local Redis: redis-server
+ 2. Add REDIS_URL=redis://localhost:6379 to server/.env
+ 3. Restart the server
+ 4. Open the app → check Network tab: first load hits DB (normal latency); second load after refresh should return profile/plan instantly (< 5ms response time from
+ Redis)
+ 5. Use redis-cli KEYS "*" to confirm profile:{userId} and plan:current:{userId} keys are populated
+ 6. Update your profile → confirm redis-cli GET profile:{userId} returns null (cache evicted)
+ 7. Fallback test: Remove REDIS_URL from .env, restart — app should function normally with no errors
 
-I read over the prisma sections lets change somethings: We should add  
+ ---
+ What This Does and Doesn't Fix
+
+ Fixes: The ~200-400ms delay from the two parallel DB queries on every page load.
+
+ Doesn't fix: The authClient.getSession() call to Neon Auth — that's an external network call. The sessionStorage layer mitigates its impact by showing stale data
+ immediately after it resolves.
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+ Claude has written up a plan and is ready to execute. Would you like to proceed?
+
+ ❯ 1. Yes, auto-accept edits
+   2. Yes, manually approve edits
+   3. Tell Claude what to change
+      shift+tab to approve with this feedback
+
+ ctrl-g to edit in Vim · ~/.claude/plans/mellow-herding-aurora.md

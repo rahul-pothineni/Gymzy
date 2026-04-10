@@ -5,6 +5,25 @@ import { api } from "../lib/api";
 import { useRef, useCallback } from "react";
 import type { TrainingPlan } from "../types";
 
+const SESSION_CACHE_KEY = "gym:cache";
+const SESSION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function readSessionCache() {
+    try {
+        const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+        if (!raw) return null;
+        const { profile, plan, cachedAt } = JSON.parse(raw);
+        if (Date.now() - cachedAt > SESSION_CACHE_TTL_MS) return null;
+        return { profile, plan };
+    } catch { return null; }
+}
+
+function writeSessionCache(profile: any, plan: any) {
+    try {
+        sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({ profile, plan, cachedAt: Date.now() }));
+    } catch {}
+}
+
 interface AuthContextType{ //gets user data if exists
     user: User | null;
     isLoading: boolean;
@@ -54,11 +73,36 @@ export default function AuthProvider({ children }: { children: ReactNode }){
         }
       }, [neonUser?.id, isLoading]);
 
-    // refreshData memoize (replace with caching later)
     const refreshData = useCallback(async () => {
         if(!neonUser || isRefreshingRef.current) return;
         isRefreshingRef.current = true;
         try {
+            // Stale-while-revalidate: show cached data immediately
+            const stale = readSessionCache();
+            if (stale) {
+                if (stale.profile) {
+                    setProfile({
+                        userId: stale.profile.user_id,
+                        goal: stale.profile.goal,
+                        experience: stale.profile.experience,
+                        daysPerWeek: stale.profile.daysPerWeek,
+                        minutesPerDay: stale.profile.minutesPerDay,
+                        split: stale.profile.split,
+                    });
+                }
+                if (stale.plan) {
+                    setPlan({
+                        id: stale.plan.id,
+                        userId: stale.plan.userId,
+                        overview: stale.plan.planJson.overview,
+                        weeklySchedule: stale.plan.planJson.weeklySchedule,
+                        progression: stale.plan.planJson.progression,
+                        version: stale.plan.version,
+                        createdAt: stale.plan.createdAt,
+                    });
+                }
+            }
+
             //fetch profile and plan in parallel
             const [profileData, planData] = await Promise.all([
                 api.getProfile().catch(() => null),
@@ -88,6 +132,9 @@ export default function AuthProvider({ children }: { children: ReactNode }){
                     createdAt: planData.createdAt,
                 });
             };
+
+            // Write fresh data to sessionStorage
+            writeSessionCache(profileData, planData);
         } catch(err) {
             console.error("Error refreshing data:", err);
         } finally {
