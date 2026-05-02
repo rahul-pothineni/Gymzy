@@ -18,7 +18,7 @@ An application that helps improve your weight-lifiting sessions by having an eas
 
 - Custom tailored workout plan based on daily life
 - Custom tracking spreadsheet to store individual workout session (sets + reps + notes)
-- Anylysis of trends in sessions (Coming soon)
+- Analysis of trends in sessions (Coming soon)
 
 ## 📍 The Process
 - coming soon -
