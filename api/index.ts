@@ -20,14 +20,22 @@ app.use(express.json({ limit: "1mb" }));
 const generateLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: "Too many plan generations. Try again later." } });
 
 // Diagnostic endpoint — remove after debugging
-app.get("/api/debug-env", (_req, res) => {
+app.get("/api/debug-env", async (_req, res) => {
+  let dbStatus = "untested";
+  try {
+    const { prisma } = await import("../server/src/lib/Prisma.js");
+    await prisma.$queryRawUnsafe("SELECT 1");
+    dbStatus = "connected";
+  } catch (e: any) {
+    dbStatus = "FAILED: " + e.message;
+  }
   res.json({
     DATABASE_URL: process.env.DATABASE_URL ? "SET (" + process.env.DATABASE_URL.substring(0, 20) + "...)" : "UNSET",
     REDIS_URL: process.env.REDIS_URL ? "SET" : "UNSET",
     FRONTEND_URL: process.env.FRONTEND_URL || "UNSET",
     NODE_ENV: process.env.NODE_ENV,
     VERCEL: process.env.VERCEL,
-    envKeyCount: Object.keys(process.env).length,
+    dbStatus,
   });
 });
 
