@@ -11,7 +11,7 @@ if (REDIS_URL) {
 
 export async function cacheGet(key: string): Promise<string | null> {
   if (!client?.isOpen) return null;
-  try { return await client.get(key); }
+  try { return await client.get(key) as string | null; }
   catch (e) { console.warn("[redis] GET failed:", e); return null; }
 }
 
