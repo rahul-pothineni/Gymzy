@@ -19,27 +19,6 @@ app.use(express.json({ limit: "1mb" }));
 
 const generateLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: "Too many plan generations. Try again later." } });
 
-// Diagnostic endpoint — remove after debugging
-app.get("/api/debug-env", async (_req, res) => {
-  let dbStatus = "untested";
-  try {
-    const { prisma } = await import("../server/src/lib/Prisma.js");
-    await prisma.$queryRawUnsafe("SELECT 1");
-    dbStatus = "connected";
-  } catch (e: any) {
-    dbStatus = "FAILED: " + e.message;
-  }
-  res.json({
-    DATABASE_URL: process.env.DATABASE_URL ? "SET" : "UNSET",
-    REDIS_URL: process.env.REDIS_URL ? "SET" : "UNSET",
-    OPEN_ROUTER_KEY: process.env.OPEN_ROUTER_KEY ? "SET" : "UNSET",
-    FRONTEND_URL: process.env.FRONTEND_URL || "UNSET",
-    NODE_ENV: process.env.NODE_ENV,
-    VERCEL: process.env.VERCEL,
-    dbStatus,
-  });
-});
-
 // Mount routes at both /api/* and /* since Vercel may pass either path
 app.use("/api/profile", requireAuth, profileRouter);
 app.use("/api/plan/generate", requireAuth, generateLimiter);

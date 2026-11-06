@@ -4,9 +4,6 @@ import pg from "pg";
 
 const connectionString = process.env.DATABASE_URL;
 
-console.log("[prisma] DATABASE_URL is", connectionString ? "SET" : "UNSET");
-console.log("[prisma] env keys:", Object.keys(process.env).filter(k => k.includes("DATABASE") || k.includes("POSTGRES")).join(", ") || "(none)");
-
 const pool = new pg.Pool({
   connectionString,
   max: 5,
