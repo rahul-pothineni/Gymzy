@@ -13,7 +13,6 @@ const pool = new pg.Pool({
   max: 5,
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
-  ssl: { rejectUnauthorized: false },
 });
 
 pool.on("error", (err) => {
