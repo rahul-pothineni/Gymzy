@@ -4,10 +4,10 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
-import { profileRouter } from "../server/src/routes/profile";
-import { planRouter } from "../server/src/routes/plan";
-import { trackerRouter } from "../server/src/routes/tracker";
-import { requireAuth } from "../server/src/middleware/auth";
+import { profileRouter } from "../server/src/routes/profile.js";
+import { planRouter } from "../server/src/routes/plan.js";
+import { trackerRouter } from "../server/src/routes/tracker.js";
+import { requireAuth } from "../server/src/middleware/auth.js";
 
 const app = express();
 
