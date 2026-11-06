@@ -19,9 +19,15 @@ app.use(express.json({ limit: "1mb" }));
 
 const generateLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: "Too many plan generations. Try again later." } });
 
+// Mount routes at both /api/* and /* since Vercel may pass either path
 app.use("/api/profile", requireAuth, profileRouter);
 app.use("/api/plan/generate", requireAuth, generateLimiter);
 app.use("/api/plan", requireAuth, planRouter);
 app.use("/api/tracker", requireAuth, trackerRouter);
+
+app.use("/profile", requireAuth, profileRouter);
+app.use("/plan/generate", requireAuth, generateLimiter);
+app.use("/plan", requireAuth, planRouter);
+app.use("/tracker", requireAuth, trackerRouter);
 
 export default app;
