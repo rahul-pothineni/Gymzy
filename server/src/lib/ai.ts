@@ -35,7 +35,7 @@ export async function generateTrainingPlan(profile: UserProfile | Record<string,
     const prompt = buildPrompt(normalizedProfile);
     try {
         const completion = await openai.chat.completions.create({
-        model: "meta-llama/llama-3.1-8b-instruct:free",
+        model: "xingchen-agi/xing4.0-29b-a4b:free",
         messages: [
             {
                 role: "system",
