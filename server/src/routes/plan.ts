@@ -36,8 +36,13 @@ planRouter.post("/generate", async (req: Request, res: Response) => {
 
     try {
       planJson = await generateTrainingPlan(profile);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI generation failed:", error);
+      if (error?.status === 429) {
+        return res.status(429).json({
+          error: "AI rate limit reached. Please wait a minute and try again.",
+        });
+      }
       return res.status(500).json({
         error: "Failed to generate training plan. Please try again.",
       });

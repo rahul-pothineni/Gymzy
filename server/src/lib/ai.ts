@@ -64,8 +64,8 @@ export async function generateTrainingPlan(profile: UserProfile | Record<string,
         const planData = JSON.parse(content);
     
         return formatPlanResponse(planData, normalizedProfile);       
-    } catch (error) {
-        console.error("Error generating training plan:", error);
+    } catch (error: any) {
+        console.error("Error generating training plan:", error?.message, error?.status, error?.response?.data || "");
         throw error;
     }
 }
