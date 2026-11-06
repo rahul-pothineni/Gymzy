@@ -1,7 +1,24 @@
 import { PrismaClient } from "@prisma/client";
-import {PrismaPg} from "@prisma/adapter-pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 const connectionString = process.env.DATABASE_URL;
-const adapter = new PrismaPg({connectionString});
 
-export const prisma = new PrismaClient({adapter});
+if (!connectionString) {
+  console.error("[prisma] DATABASE_URL is not set!");
+}
+
+const pool = new pg.Pool({
+  connectionString,
+  max: 5,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  ssl: { rejectUnauthorized: false },
+});
+
+pool.on("error", (err) => {
+  console.error("[prisma] Pool error:", err.message);
+});
+
+const adapter = new PrismaPg({ pool });
+export const prisma = new PrismaClient({ adapter });
