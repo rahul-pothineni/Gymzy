@@ -18,5 +18,5 @@ pool.on("error", (err) => {
   console.error("[prisma] Pool error:", err.message);
 });
 
-const adapter = new PrismaPg({ pool });
+const adapter = new PrismaPg(pool);
 export const prisma = new PrismaClient({ adapter });
