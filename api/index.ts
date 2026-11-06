@@ -30,8 +30,9 @@ app.get("/api/debug-env", async (_req, res) => {
     dbStatus = "FAILED: " + e.message;
   }
   res.json({
-    DATABASE_URL: process.env.DATABASE_URL ? "SET (" + process.env.DATABASE_URL.substring(0, 20) + "...)" : "UNSET",
+    DATABASE_URL: process.env.DATABASE_URL ? "SET" : "UNSET",
     REDIS_URL: process.env.REDIS_URL ? "SET" : "UNSET",
+    OPEN_ROUTER_KEY: process.env.OPEN_ROUTER_KEY ? "SET" : "UNSET",
     FRONTEND_URL: process.env.FRONTEND_URL || "UNSET",
     NODE_ENV: process.env.NODE_ENV,
     VERCEL: process.env.VERCEL,
