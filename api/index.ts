@@ -1,3 +1,27 @@
-import { app } from "../server/src/index.js";
+import 'dotenv/config';
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+import { profileRouter } from "../server/src/routes/profile";
+import { planRouter } from "../server/src/routes/plan";
+import { trackerRouter } from "../server/src/routes/tracker";
+import { requireAuth } from "../server/src/middleware/auth";
+
+const app = express();
+
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
+app.use(helmet());
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+app.use(cookieParser());
+app.use(express.json({ limit: "1mb" }));
+
+const generateLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: "Too many plan generations. Try again later." } });
+
+app.use("/api/profile", requireAuth, profileRouter);
+app.use("/api/plan/generate", requireAuth, generateLimiter);
+app.use("/api/plan", requireAuth, planRouter);
+app.use("/api/tracker", requireAuth, trackerRouter);
 
 export default app;
